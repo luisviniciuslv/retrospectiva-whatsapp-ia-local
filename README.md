@@ -27,7 +27,7 @@ chat.txt ─▶ 1. limpar ─▶ 2. chunks ─▶ 3. MAP (IA lê bloco a bloco) 
 
 **Windows (PowerShell)**
 ```powershell
-git clone https://github.com/<seu-usuario>/retrospectiva-whatsapp-ia-local.git
+git clone https://github.com/luisviniciuslv/retrospectiva-whatsapp-ia-local.git
 cd retrospectiva-whatsapp-ia-local
 py -m venv .venv
 .\.venv\Scripts\pip install -r requirements.txt
@@ -36,7 +36,7 @@ winget install Ollama.Ollama      # ou baixe em https://ollama.com/download
 
 **Linux / macOS**
 ```bash
-git clone https://github.com/<seu-usuario>/retrospectiva-whatsapp-ia-local.git
+git clone https://github.com/luisviniciuslv/retrospectiva-whatsapp-ia-local.git
 cd retrospectiva-whatsapp-ia-local
 python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 curl -fsSL https://ollama.com/install.sh | sh

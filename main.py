@@ -18,6 +18,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
+import shlex
 import sys
 from datetime import date, datetime
 from pathlib import Path
@@ -94,9 +96,15 @@ def extrair_zip(caminho: Path) -> Path:
 
 def achar_arquivo_raw(arquivo: str | None) -> Path:
     if arquivo:
-        p = Path(arquivo)
+        p = Path(arquivo).expanduser()
+        if not p.exists() and (settings.RAW_DIR / p.name).exists():
+            p = settings.RAW_DIR / p.name  # "chat.txt" também acha o que está em data/raw
         if not p.exists():
-            raise SystemExit(f"Arquivo não encontrado: {p}")
+            perto = sorted({c.name for d in (Path.cwd(), settings.RAW_DIR) if d.exists()
+                            for c in d.iterdir() if c.suffix.lower() in {".txt", ".zip"}})
+            dica = ("\n  Arquivos .txt/.zip encontrados aqui e em data/raw: " + ", ".join(perto)) if perto else ""
+            raise SystemExit(f"Arquivo da conversa não encontrado: {p}\n  (procurei a partir de {Path.cwd()} "
+                             f"e em {settings.RAW_DIR}){dica}")
         return extrair_zip(p) if p.suffix.lower() == ".zip" else p
     txts = sorted(settings.RAW_DIR.glob("*.txt"))
     if not txts:
@@ -448,13 +456,17 @@ def cmd_rodar(args) -> None:
     """Comando único: conversa → limpeza → MAP → dossiê → letra da música."""
     if getattr(args, "conversa", None):
         args.arquivo = args.conversa
-    sel = obter_selecao(args)
     titulo("Retrospectiva completa")
+    # confere tudo ANTES de começar: arquivo, servidor e modelo (nada de falhar no meio)
+    args.arquivo = str(achar_arquivo_raw(args.arquivo))
+    print(f"  Conversa : {args.arquivo}")
+    sel = obter_selecao(args)
     mostrar_selecao(sel)
-    print("  Todas as etapas usam este modelo. É retomável: se parar, rode o mesmo comando de novo.")
     sim_antes = args.sim
     args.sim = True  # sem perguntas no meio do caminho (baixa o modelo se faltar)
     try:
+        garantir_modelo(sel, True)
+        print("  Todas as etapas usam este modelo. É retomável: se parar, rode o mesmo comando de novo.")
         cmd_limpar(args)
         cmd_chunks(args)
         cmd_map(args)
@@ -626,7 +638,25 @@ def construir_parser() -> argparse.ArgumentParser:
     return p
 
 
+RE_FLAG_COLADA = re.compile(r"\s-{1,2}[A-Za-z]")
+
+
+def reparar_argumentos(argv: list[str]) -> list[str]:
+    """No cmd/PowerShell, uma aspa aberta e não fechada (ou um atalho mal configurado) junta
+    tudo num argumento só: "chat.txt --modelo X --ano 2026". Separa de novo."""
+    saida: list[str] = []
+    for a in argv:
+        if RE_FLAG_COLADA.search(a) and not Path(a).exists():
+            partes = [p.strip("\"'") for p in shlex.split(a, posix=False)]
+            aviso(f"Argumentos vieram grudados num só (aspa sem fechar?); separei: {' '.join(partes)}")
+            saida.extend(p for p in partes if p)
+        else:
+            saida.append(a.strip("\"") if a.count('"') == 1 else a)  # aspa solta na ponta
+    return saida
+
+
 def main(argv: list[str] | None = None) -> None:
+    argv = reparar_argumentos(sys.argv[1:] if argv is None else argv)
     args = construir_parser().parse_args(argv)
     if not getattr(args, "fn", None):
         menu(args)

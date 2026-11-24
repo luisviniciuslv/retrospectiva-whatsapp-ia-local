@@ -69,7 +69,14 @@ class TestSelecao(unittest.TestCase):
         self.assertEqual(_perfil_por_vram(0), "teste")
         self.assertEqual(_perfil_por_vram(8), "teste")
         self.assertEqual(_perfil_por_vram(12), "producao")
+        self.assertEqual(_perfil_por_vram(12282 / 1024), "producao")  # RTX 4070 "12 GB" via nvidia-smi
+        self.assertEqual(_perfil_por_vram(8188 / 1024), "teste")
         self.assertEqual(_perfil_por_vram(24), "producao")
+
+    def test_modelo_com_barra_invertida(self):
+        sel = selecionar(perfil="producao", modelo="huihui_ai\\gemma-4-abliterated:12b", host="http://127.0.0.1:1")
+        self.assertEqual(sel.modelo, "huihui_ai/gemma-4-abliterated:12b")
+        self.assertEqual(sel.slug, "huihui_ai-gemma-4-abliterated-12b")
 
     def test_host(self):
         self.assertTrue(host_eh_local("http://localhost:11434"))
@@ -162,6 +169,23 @@ class TestCLI(unittest.TestCase):
         self.assertEqual((a.conversa, a.modelo, a.ano), ("chat.zip", "gemma3:12b", 2026))
         a = main.construir_parser().parse_args(["--modelo", "qwen2.5:7b", "rodar"])
         self.assertEqual((a.conversa, a.modelo), (None, "qwen2.5:7b"))
+
+    def test_argumentos_grudados(self):
+        import main
+        # o que chegou de verdade no Windows: tudo depois de "musica" num argumento só
+        argv = main.reparar_argumentos(
+            ["musica", "chat.txt --modelo huihui_ai\\gemma-4-abliterated:12b --ano 2026 --perfil producao"])
+        self.assertEqual(argv, ["musica", "chat.txt", "--modelo", "huihui_ai\\gemma-4-abliterated:12b",
+                                "--ano", "2026", "--perfil", "producao"])
+        a = main.construir_parser().parse_args(argv)
+        self.assertEqual((a.conversa, a.modelo, a.ano, a.perfil),
+                         ("chat.txt", "huihui_ai\\gemma-4-abliterated:12b", 2026, "producao"))
+        # com espaço no nome e aspa aberta sem fechar
+        self.assertEqual(main.reparar_argumentos(['"WhatsApp Chat - Grupo.zip" -m qwen2.5:14b']),
+                         ["WhatsApp Chat - Grupo.zip", "-m", "qwen2.5:14b"])
+        self.assertEqual(main.reparar_argumentos(['"chat.txt']), ["chat.txt"])
+        # argumentos normais passam intactos
+        self.assertEqual(main.reparar_argumentos(["musica", "chat.txt", "-m", "x"]), ["musica", "chat.txt", "-m", "x"])
 
     def test_extrair_zip(self):
         import tempfile

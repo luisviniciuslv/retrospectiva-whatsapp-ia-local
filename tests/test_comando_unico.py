@@ -95,6 +95,23 @@ class TestComandoUnico(unittest.TestCase):
         main.main(["musica", str(self.zip), "-m", "fake:1b", "--perfil", "teste"])
         self.assertEqual(len(ia_de_mentira.prompts), antes)
 
+    def test_argumentos_grudados_e_modelo_com_barra_invertida(self):
+        """Reproduz a linha que falhou no Windows: tudo num argumento só e modelo com '\\'."""
+        with mock.patch.object(llm_client.OllamaClient, "modelos_instalados",
+                               lambda self: ["huihui_ai/gemma-4-abliterated:12b"]):
+            main.main(["musica", f'"{self.zip}" --modelo huihui_ai\\gemma-4-abliterated:12b '
+                                 "--ano 2026 --perfil producao"])
+        saida = self.base / "output" / "huihui_ai-gemma-4-abliterated-12b"
+        self.assertTrue((saida / settings.NOME_ARQUIVO_DOSSIE).exists())
+        self.assertTrue((saida / settings.NOME_ARQUIVO_HISTORIA).exists())
+
+    def test_arquivo_inexistente_falha_antes_de_tudo(self):
+        with self.assertRaises(SystemExit) as ctx:
+            main.main(["musica", "nao_existe.txt", "-m", "fake:1b"])
+        self.assertIn("não encontrado", str(ctx.exception.code))
+        self.assertEqual(ia_de_mentira.prompts, [])
+        self.assertFalse((self.base / "processed").exists())
+
 
 if __name__ == "__main__":
     unittest.main()

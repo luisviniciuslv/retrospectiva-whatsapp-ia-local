@@ -88,15 +88,26 @@ class OllamaClient:
 
     def baixar_modelo(self, modelo: str, progresso=None) -> None:
         """`ollama pull` via API, com callback de progresso (status, completed, total)."""
-        with requests.post(f"{self.host}/api/pull", json={"model": modelo, "stream": True},
-                           stream=True, timeout=None) as r:
-            r.raise_for_status()
+        try:
+            r = requests.post(f"{self.host}/api/pull", json={"model": modelo, "stream": True},
+                              stream=True, timeout=None)
+        except requests.RequestException as e:
+            raise OllamaErro(f"Não consegui falar com o Ollama em {self.host}: {e}") from e
+        with r:
+            if not r.ok:
+                try:
+                    detalhe = r.json().get("error", r.text)
+                except ValueError:
+                    detalhe = r.text
+                raise OllamaErro(f"O Ollama não conseguiu baixar '{modelo}': {detalhe.strip()}. "
+                                 f"Confira o nome em https://ollama.com/search (ex.: usuario/modelo:tag).")
             for linha in r.iter_lines():
                 if not linha:
                     continue
                 evt = json.loads(linha)
                 if "error" in evt:
-                    raise OllamaErro(evt["error"])
+                    raise OllamaErro(f"O Ollama não conseguiu baixar '{modelo}': {evt['error']}. "
+                                     f"Confira o nome em https://ollama.com/search (ex.: usuario/modelo:tag).")
                 if progresso:
                     progresso(evt.get("status", ""), evt.get("completed"), evt.get("total"))
 
@@ -167,7 +178,8 @@ class Selecao:
 def _perfil_por_vram(vram_gb: float) -> str:
     candidatos = sorted(settings.PERFIS.items(), key=lambda kv: kv[1]["vram_min_gb"], reverse=True)
     for nome, cfg in candidatos:
-        if vram_gb >= cfg["vram_min_gb"]:
+        # placa "de 12 GB" reporta 12282 MiB = 11,99 GB: folga de 0,5 GB para não cair de perfil
+        if vram_gb + 0.5 >= cfg["vram_min_gb"]:
             return nome
     return candidatos[-1][0]
 
@@ -185,6 +197,9 @@ def selecionar(perfil: str = "auto", modelo: str | None = None, host: str = sett
                vram_gb: float | None = None, cliente: OllamaClient | None = None) -> Selecao:
     cliente = cliente or OllamaClient(host)
     avisos: list[str] = []
+    if modelo:
+        # no Windows é comum digitar "usuario\modelo"; o Ollama só aceita "usuario/modelo"
+        modelo = modelo.strip().strip("\"'").replace("\\", "/")
     try:
         instalados = cliente.modelos_instalados()
     except OllamaErro as e:

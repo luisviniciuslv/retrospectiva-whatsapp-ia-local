@@ -11,6 +11,8 @@ a matéria-prima pronta para compor aquela música (ou vídeo, ou discurso) de f
 
 ```
 chat.txt ─▶ 1. limpar ─▶ 2. chunks ─▶ 3. MAP (IA lê bloco a bloco) ─▶ 4. REDUCE (IA consolida) ─▶ dossie_retrospectiva.md
+                                                                                              │
+                                              5. HISTÓRIA (IA lê o dossiê em blocos e narra) ◀┘ ─▶ historia_para_musica.txt
 ```
 
 ---
@@ -61,11 +63,16 @@ em português ou inglês, são detectados automaticamente.
 .\retro.cmd piloto -n 8        # testa a IA em 8 trechos espalhados (rápido)
 .\retro.cmd map                # processa tudo (pode levar horas; Ctrl+C e rode de novo para continuar)
 .\retro.cmd reduce             # gera o dossiê
+.\retro.cmd historia           # transforma o dossiê num texto corrido para a IA de música
 ```
 
 Ou tudo de uma vez: `.\retro.cmd rodar --ano 2026 -y`. Rodando `.\retro.cmd` sem nada, abre um **menu interativo**.
 
-O resultado fica em `data/output/<modelo>/dossie_retrospectiva.md`.
+O resultado fica em `data/output/<modelo>/`:
+
+- `dossie_retrospectiva.md`: o material organizado (linha do tempo, pessoas, piadas, pérolas).
+- `historia_para_musica.txt`: **o texto para colar na IA geradora de música** (Suno, Udio etc.).
+- `historia_rascunho.md`: a história completa, escrita bloco a bloco, antes de ser enxugada.
 
 ### Comandos
 
@@ -78,6 +85,7 @@ O resultado fica em `data/output/<modelo>/dossie_retrospectiva.md`.
 | `piloto -n N` | Roda a IA em N blocos e salva `piloto.md` para você avaliar. Também estima o tempo total |
 | `map` | Etapa 3: extração completa e retomável (`--limite N`, `--refazer`, `-v`) |
 | `reduce` | Etapa 4: consolida por mês e gera o dossiê (`--parcial` para gerar antes de o MAP terminar) |
+| `historia` | Etapa 5: lê o dossiê em blocos e escreve a história do grupo em prosa (`--palavras N`, `--dossie ARQ`, `--bloco N`, `--refazer`, `-v`) |
 | `rodar` | Todas as etapas em sequência |
 | `resetar` | Apaga os checkpoints do modelo atual (`--tudo` inclui dossiê e piloto) |
 
@@ -137,6 +145,21 @@ copy config\aliases.example.json config\aliases.json
 
 O dossiê inclui anexos com quem mais falou e as anotações brutas de cada mês, para a curadoria humana final.
 
+### A história para a música
+
+O `historia` divide o dossiê em blocos (sem o anexo de contagem e sem itens repetidos) e lê um por
+vez. A cada bloco, a IA recebe a história escrita até ali e acrescenta só o que é novo. No fim, uma
+última chamada reescreve tudo como um texto único de até `--palavras` palavras (400 por padrão).
+Os prompts são [`historia_bloco_prompt.txt`](prompts/historia_bloco_prompt.txt) e
+[`historia_final_prompt.txt`](prompts/historia_final_prompt.txt).
+
+O progresso fica salvo em `historia_passos.jsonl`: se você interromper, ele continua de onde parou.
+Para escrever de novo do zero (depois de mexer nos prompts, por exemplo), use `--refazer`.
+Para narrar o dossiê de outro modelo, use `--dossie data\output\qwen2.5-14b\dossie_retrospectiva.md`.
+
+> 💡 Modelos pequenos (3b) escrevem de forma repetitiva e às vezes inventam detalhes. Para o texto
+> final, prefira o perfil `producao` ou pelo menos `--modelo qwen2.5:7b`, e revise antes de usar.
+
 ## 8. Privacidade
 
 O `.gitignore` já impede que você publique sem querer `data/` (conversa, mensagens limpas, resultados),
@@ -168,8 +191,8 @@ Testes automatizados (não usam IA): `python -m unittest discover tests`
 
 ```
 config/      settings.py (perfis e parâmetros) · aliases.example.json
-prompts/     map_prompt.txt · reduce_mes_prompt.txt · reduce_prompt.txt
-src/         cleaner.py · chunker.py · llm_client.py (Ollama + seleção de modelo) · map_phase.py · reduce_phase.py
+prompts/     map_prompt.txt · reduce_mes_prompt.txt · reduce_prompt.txt · historia_*_prompt.txt
+src/         cleaner.py · chunker.py · llm_client.py (Ollama + seleção de modelo) · map_phase.py · reduce_phase.py · historia.py
 data/        raw/ (seu .txt) · processed/ · output/   ← ignorados pelo git
 docs/        plano de projeto original
 main.py      CLI · retro.cmd / retro (atalhos)

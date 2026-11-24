@@ -3,6 +3,7 @@ import unittest
 from datetime import date
 
 from src import chunker, cleaner
+from src.historia import blocos_do_dossie, limpar_dossie, limpar_trecho, periodo_do_dossie
 from src.llm_client import _perfil_por_vram, host_eh_local, selecionar
 from src.map_phase import eh_nada_relevante
 
@@ -84,5 +85,64 @@ class TestSelecao(unittest.TestCase):
         self.assertFalse(eh_nada_relevante("### Eventos\n- (15/01) Caio passou no concurso"))
 
 
+DOSSIE = """# Dossiê de Retrospectiva
+
+> Período: **Junho/2026 a Julho/2026** · Modelo: `x`
+
+## 1. Grandes Momentos
+### Junho/2026
+- (22/06) Zé caiu da bike na frente do grupo
+### Julho/2026
+
+## 2. Destaques Individuais
+### Ana
+- (22/06) Zé caiu da bike na frente do grupo
+- Ana ganhou o bolão
+
+---
+
+## Anexo A — Quem mais falou
+
+- Zé: 10 mensagens
+
+## Anexo B — Anotações por mês
+### Junho/2026
+#### Pérolas
+- "bike não é pra mim" — Zé
+"""
+
+
+class TestHistoria(unittest.TestCase):
+    def test_limpar_dossie(self):
+        texto = "\n".join(limpar_dossie(DOSSIE))
+        self.assertNotIn("Anexo A", texto)  # contagem de mensagens não interessa
+        self.assertNotIn("10 mensagens", texto)
+        self.assertNotIn("### Julho/2026\n## 2", texto)  # título vazio some
+        self.assertEqual(texto.count("caiu da bike"), 1)  # item repetido some
+        self.assertIn("bike não é pra mim", texto)
+        self.assertEqual(periodo_do_dossie(DOSSIE), "Junho/2026 a Julho/2026")
+
+    def test_blocos_repetem_titulos(self):
+        blocos = blocos_do_dossie(DOSSIE, 90)
+        self.assertGreater(len(blocos), 1)
+        juntos = "\n".join(blocos)
+        for item in ("caiu da bike", "ganhou o bolão", "bike não é pra mim"):
+            self.assertIn(item, juntos)
+        # todo bloco começa situado em uma seção e tem conteúdo
+        self.assertTrue(all(b.startswith("#") for b in blocos))
+        self.assertTrue(all(any(not l.startswith("#") for l in b.splitlines()) for b in blocos))
+
+    def test_limpar_trecho(self):
+        self.assertEqual(limpar_trecho("NADA_NOVO"), "")
+        self.assertEqual(limpar_trecho("**NADA_NOVO**."), "")
+        r = limpar_trecho("Aqui está a versão final:\n\n### Junho\n- (22/06) Zé caiu da bike.\n\n---\n\n"
+                          "(22/06) Zé caiu da bike.")
+        self.assertEqual(r, "Zé caiu da bike.")
+        vistos: set[str] = set()
+        limpar_trecho("Ana ganhou o bolão.", vistos)
+        self.assertEqual(limpar_trecho("Ana ganhou o bolão.\n\nZé riu.", vistos), "Zé riu.")
+
+
 if __name__ == "__main__":
     unittest.main()
+

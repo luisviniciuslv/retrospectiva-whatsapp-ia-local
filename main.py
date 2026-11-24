@@ -9,6 +9,7 @@ Uso rápido:
     python main.py piloto -n 8      # teste piloto em 8 chunks espalhados
     python main.py map              # etapa 3 completa (retomável)
     python main.py reduce           # etapa 4 -> dossiê
+    python main.py historia         # etapa 5 -> texto narrativo para IA de música
     python main.py rodar            # tudo de uma vez
 
 Seleção do modelo:  --perfil auto|teste|producao  --modelo NOME  --host URL  --vram GB
@@ -25,6 +26,7 @@ from config import settings
 from src import chunker, cleaner
 from src.llm_client import OllamaClient, OllamaErro, Selecao, detectar_gpus, host_eh_local, selecionar
 from src.map_phase import carregar_checkpoint, escolher_amostra, rodar_map
+from src.historia import Escritor, blocos_do_dossie, periodo_do_dossie
 from src.reduce_phase import Reducer, extracoes_por_mes
 
 if hasattr(sys.stdout, "reconfigure"):
@@ -203,6 +205,8 @@ def cmd_status(args) -> None:
         print(f"  MAP concluído: {validos}/{len(chunks)} ({relevantes} relevantes)")
         dossie = pasta_saida(sel) / settings.NOME_ARQUIVO_DOSSIE
         print(f"  Dossiê: {dossie if dossie.exists() else '(ainda não gerado)'}")
+        hist = pasta_saida(sel) / settings.NOME_ARQUIVO_HISTORIA
+        print(f"  História: {hist if hist.exists() else '(ainda não gerada)'}")
     else:
         print("  Nada processado ainda. Próximo passo: python main.py limpar")
 
@@ -367,6 +371,54 @@ def cmd_reduce(args) -> None:
     print(f"  Reduce {'hierárquico (por mês)' if meta['hierarquico'] else 'direto'}: "
           f"{meta['chars_brutos']} → {meta['chars_consolidados']} chars")
     ok(f"Dossiê salvo em {destino.relative_to(settings.ROOT_DIR)}")
+    print("  Próximo passo: python main.py historia  (texto para a IA de música)")
+
+
+def cmd_historia(args) -> None:
+    titulo("Etapa 5 — História para a música")
+    sel = obter_selecao(args)
+    mostrar_selecao(sel)
+    saida = pasta_saida(sel)
+    dossie = Path(args.dossie) if args.dossie else saida / settings.NOME_ARQUIVO_DOSSIE
+    if not dossie.exists():
+        raise SystemExit(f"Dossiê não encontrado em {dossie}. Rode primeiro: python main.py reduce "
+                         f"(ou aponte outro com --dossie)")
+    garantir_modelo(sel, args.sim)
+    md = dossie.read_text(encoding="utf-8")
+    alvo = args.bloco or sel.config["reduce_max_chars"] // 4
+    blocos = blocos_do_dossie(md, alvo)
+    if not blocos:
+        raise SystemExit("O dossiê está vazio — nada para contar.")
+    ckpt = saida / settings.NOME_ARQUIVO_HISTORIA_CKPT
+    if args.refazer and ckpt.exists():
+        ckpt.unlink()
+    print(f"  Dossiê: {dossie}  ({len(md)} chars → {len(blocos)} blocos de ~{alvo} chars)")
+
+    participantes = ""
+    if ARQ_MENSAGENS.exists():
+        participantes = ", ".join(n for n, _ in cleaner.contar_autores(cleaner.carregar_mensagens(ARQ_MENSAGENS))
+                                  .most_common(40))
+    periodo = periodo_do_dossie(md)
+    escritor = Escritor(sel, ckpt)
+    try:
+        rascunho = escritor.rascunho(blocos, periodo, participantes or "(veja os nomes nas anotações)",
+                                     verbose=args.verbose)
+        if not rascunho:
+            raise SystemExit("A IA não achou nada para contar no dossiê.")
+        (saida / settings.NOME_ARQUIVO_RASCUNHO).write_text(
+            f"# Rascunho da história — {periodo}\n\n{rascunho}\n", encoding="utf-8")
+        print("Escrevendo a versão final (pode demorar alguns minutos)...")
+        texto = escritor.final(rascunho, periodo, args.palavras)
+    except KeyboardInterrupt:
+        print()
+        aviso("Interrompido. O progresso está salvo — rode `historia` de novo para continuar.")
+        raise SystemExit(130)
+    destino = saida / settings.NOME_ARQUIVO_HISTORIA
+    destino.write_text(texto + "\n", encoding="utf-8")
+    print(f"\n{texto}\n")
+    print(f"  {len(texto.split())} palavras · {len(texto)} caracteres")
+    ok(f"Rascunho completo em {(saida / settings.NOME_ARQUIVO_RASCUNHO).relative_to(settings.ROOT_DIR)}")
+    ok(f"Texto para a IA de música em {destino.relative_to(settings.ROOT_DIR)}")
 
 
 def cmd_rodar(args) -> None:
@@ -374,14 +426,17 @@ def cmd_rodar(args) -> None:
     cmd_chunks(args)
     cmd_map(args)
     cmd_reduce(args)
+    cmd_historia(args)
 
 
 def cmd_resetar(args) -> None:
     sel = obter_selecao(args)
     saida = pasta_saida(sel)
-    alvos = [saida / settings.NOME_ARQUIVO_MAP, saida / settings.NOME_ARQUIVO_MESES]
+    alvos = [saida / settings.NOME_ARQUIVO_MAP, saida / settings.NOME_ARQUIVO_MESES,
+             saida / settings.NOME_ARQUIVO_HISTORIA_CKPT]
     if args.tudo:
-        alvos += [saida / settings.NOME_ARQUIVO_DOSSIE, saida / "piloto.jsonl", saida / "piloto.md"]
+        alvos += [saida / settings.NOME_ARQUIVO_DOSSIE, saida / "piloto.jsonl", saida / "piloto.md",
+                  saida / settings.NOME_ARQUIVO_HISTORIA, saida / settings.NOME_ARQUIVO_RASCUNHO]
     existentes = [a for a in alvos if a.exists()]
     if not existentes:
         ok("Nada para apagar.")
@@ -405,11 +460,13 @@ def menu(args) -> None:
         ("3a. Piloto (8 chunks)", cmd_piloto),
         ("3b. MAP completo (retomável)", cmd_map),
         ("4. REDUCE → dossiê", cmd_reduce),
+        ("5. História para a música", cmd_historia),
         ("Rodar tudo", cmd_rodar),
         ("Trocar perfil (auto/teste/producao)", None),
     ]
     defaults = dict(arquivo=None, inicio=None, fim=None, ano=None, n=8, semente=42, quieto=False,
-                    limite=None, refazer=False, verbose=False, parcial=False, tudo=False)
+                    limite=None, refazer=False, verbose=False, parcial=False, tudo=False,
+                    dossie=None, bloco=None, palavras=settings.HISTORIA_PALAVRAS)
     for k, v in defaults.items():
         if not hasattr(args, k):
             setattr(args, k, v)
@@ -495,15 +552,26 @@ def construir_parser() -> argparse.ArgumentParser:
     sr.add_argument("--parcial", action="store_true", help="gera o dossiê mesmo com MAP incompleto")
     sr.set_defaults(fn=cmd_reduce)
 
+    sh = sub.add_parser("historia", parents=[comum], help="etapa 5: texto narrativo para IA de música")
+    sh.add_argument("--dossie", help="caminho do dossiê (padrão: o do modelo selecionado)")
+    sh.add_argument("--palavras", type=int, default=settings.HISTORIA_PALAVRAS,
+                    help=f"tamanho máximo do texto final (padrão {settings.HISTORIA_PALAVRAS})")
+    sh.add_argument("--bloco", type=int, help="tamanho dos blocos lidos do dossiê, em caracteres")
+    sh.add_argument("--refazer", action="store_true", help="ignora o checkpoint e escreve do zero")
+    sh.add_argument("-v", "--verbose", action="store_true", help="imprime o trecho escrito a cada bloco")
+    sh.set_defaults(fn=cmd_historia)
+
     sa = sub.add_parser("rodar", parents=[comum, filtro], help="pipeline completo")
     sa.add_argument("--limite", type=int, help=argparse.SUPPRESS)
     sa.add_argument("--refazer", action="store_true", help="refaz o MAP do zero")
     sa.add_argument("-v", "--verbose", action="store_true")
     sa.add_argument("--parcial", action="store_true")
+    sa.add_argument("--palavras", type=int, default=settings.HISTORIA_PALAVRAS, help=argparse.SUPPRESS)
+    sa.set_defaults(dossie=None, bloco=None)
     sa.set_defaults(fn=cmd_rodar)
 
     sx = sub.add_parser("resetar", parents=[comum], help="apaga checkpoints do modelo selecionado")
-    sx.add_argument("--tudo", action="store_true", help="apaga também dossiê e piloto")
+    sx.add_argument("--tudo", action="store_true", help="apaga também dossiê, piloto e história")
     sx.set_defaults(fn=cmd_resetar)
     return p
 

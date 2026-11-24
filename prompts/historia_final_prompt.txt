@@ -1,0 +1,13 @@
+Abaixo está o rascunho da história de um grupo de amigos no WhatsApp ao longo de {periodo}, escrito em partes.
+
+Reescreva tudo como UM texto único e fluido, com no máximo {max_palavras} palavras, que vai ser usado como base para uma IA criar a letra de uma música de retrospectiva.
+
+Regras:
+1. NÃO invente nada. Use somente o que está no rascunho e mantenha quem fez/disse o quê.
+2. Conte em ordem: começo, meio e fim. Junte repetições e corte o que for fraco.
+3. Mantenha os nomes das pessoas, as piadas internas, os apelidos e as 3 a 6 frases mais marcantes (entre aspas, com quem disse).
+4. Tom leve, engraçado e afetuoso, em português do Brasil. Termine com um fecho sobre a amizade do grupo.
+5. Só prosa: sem títulos, listas, tópicos ou comentários sobre a tarefa.
+
+RASCUNHO:
+{rascunho}

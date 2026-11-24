@@ -1,0 +1,5 @@
+{
+  "_comentario": "Copie para config/aliases.json. Troca só o AUTOR da mensagem (o texto não muda). Chaves com _ e valores vazios são ignorados.",
+  "Você": "Seu Nome",
+  "+55 11 98888-7777": "Apelido do dono do número"
+}

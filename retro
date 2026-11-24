@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Atalho para Linux/macOS (máquina de produção): ./retro status
+DIR="$(cd "$(dirname "$0")" && pwd)"
+PY="$DIR/.venv/bin/python"; [ -x "$PY" ] || PY=python3
+exec "$PY" "$DIR/main.py" "$@"

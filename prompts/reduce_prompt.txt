@@ -1,0 +1,26 @@
+Abaixo estão anotações extraídas ao longo de {periodo} de um grupo de WhatsApp, organizadas por mês.
+Consolide essas informações em um Dossiê de Retrospectiva bem organizado, removendo repetições e destacando o que realmente definiu o ano do grupo.
+
+Participantes do grupo (por número de mensagens): {participantes}
+
+Organize a resposta em Markdown com EXATAMENTE as seguintes seções:
+
+## 1. Grandes Momentos
+Linha do tempo resumida, mês a mês (### Mês/Ano e tópicos).
+
+## 2. Destaques Individuais
+Um tópico por participante citado nas anotações: o que marcou o ano daquela pessoa.
+
+## 3. Piadas Internas e Bordões
+Dicionário: **termo** — o que significa / de onde veio.
+
+## 4. Pérolas e Frases Marcantes
+"frase" — Nome de quem disse. Escolha as que dariam bons versos ou refrão de música.
+
+Regras:
+1. NÃO invente fatos, nomes ou falas. Use somente o que está nas anotações.
+2. Mantenha as frases das Pérolas exatamente como estão, com o autor original.
+3. Escreva em português do Brasil, em tom leve.
+
+Anotações brutas:
+{extrato_consolidado}

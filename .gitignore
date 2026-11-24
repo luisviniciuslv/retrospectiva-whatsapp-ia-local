@@ -1,0 +1,15 @@
+# Ambiente
+.venv/
+__pycache__/
+*.pyc
+
+# Dados privados — NUNCA versionar conversas, apelidos reais ou resultados
+config/aliases.json
+data/raw/*
+data/processed/*
+data/output/*
+!data/**/.gitkeep
+*.txt
+!requirements.txt
+!prompts/*.txt
+!exemplos/*.txt

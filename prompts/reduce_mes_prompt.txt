@@ -1,0 +1,22 @@
+Abaixo estão anotações extraídas de um grupo de WhatsApp referentes ao período {periodo}.
+Várias anotações se repetem porque os trechos da conversa se sobrepõem.
+
+Consolide tudo em um resumo enxuto desse período, SEM inventar nada e SEM perder quem fez/disse o quê.
+Use exatamente estes títulos (omita os que ficarem vazios):
+
+### Eventos
+- (dd/mm) acontecimento — quem participou
+### Perrengues e histórias
+- (dd/mm) história — quem estava envolvido
+### Piadas internas e memes
+- termo ou piada — explicação curta
+### Pérolas
+- "frase" — Nome de quem falou
+
+Regras:
+1. Junte itens repetidos em um só; mantenha o mais completo.
+2. Mantenha as frases das Pérolas exatamente como estão, com o autor original.
+3. Priorize o que é mais engraçado, marcante ou que foi citado várias vezes.
+
+Anotações brutas:
+{extrato}

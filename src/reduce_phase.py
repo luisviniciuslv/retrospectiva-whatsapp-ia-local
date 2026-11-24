@@ -140,8 +140,13 @@ class Reducer:
         prompt = (self.tpl_final.replace("{periodo}", periodo)
                   .replace("{participantes}", lista_part)
                   .replace("{extrato_consolidado}", consolidado))
-        print("Gerando o dossiê final (pode demorar alguns minutos)...")
-        corpo = self._chamar(prompt)
+        # também vai para o checkpoint: rodar de novo (ex.: o comando único depois de uma
+        # interrupção) reaproveita o mesmo dossiê, e a história não precisa recomeçar
+        chave = f"{self.sel.modelo}|dossie|{_hash(prompt)}"
+        if chave not in self.cache:
+            print("Gerando o dossiê final (pode demorar alguns minutos)...")
+            self._salvar_cache(chave, "dossie", self._chamar(prompt))
+        corpo = self.cache[chave]
         meta = {"periodo": periodo, "hierarquico": hierarquico, "chars_brutos": bruto_total,
                 "chars_consolidados": len(consolidado)}
         return self._formatar(corpo, resumos, meta, participantes), meta

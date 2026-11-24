@@ -1,13 +1,24 @@
-Abaixo está o rascunho da história de um grupo de amigos no WhatsApp ao longo de {periodo}, escrito em partes.
+Abaixo está o material da zoeira de um grupo de amigos no WhatsApp ao longo de {periodo}.
 
-Reescreva tudo como UM texto único e fluido, com no máximo {max_palavras} palavras, que vai ser usado como base para uma IA criar a letra de uma música de retrospectiva.
+Transforme isso na LETRA de uma música de retrospectiva BEM ZOEIRA, em português do Brasil, com no máximo {max_palavras} palavras, pronta para colar numa IA de música (Suno, Udio etc.).
+
+Use exatamente esta estrutura, com cada marcação sozinha numa linha:
+[Verso 1]
+[Refrão]
+[Verso 2]
+[Refrão]
+[Ponte]
+[Verso 3]
+[Refrão]
 
 Regras:
-1. NÃO invente nada. Use somente o que está no rascunho e mantenha quem fez/disse o quê.
-2. Conte em ordem: começo, meio e fim. Junte repetições e corte o que for fraco.
-3. Mantenha os nomes das pessoas, as piadas internas, os apelidos e as 3 a 6 frases mais marcantes (entre aspas, com quem disse).
-4. Tom leve, engraçado e afetuoso, em português do Brasil. Termine com um fecho sobre a amizade do grupo.
-5. Só prosa: sem títulos, listas, tópicos ou comentários sobre a tarefa.
+1. TUDO RIMADO. Cada estrofe tem de 4 a 6 versos curtos e cantáveis, rimando em pares (AABB) ou alternado (ABAB). Prefira rimas fáceis e sonoras a palavras difíceis.
+2. Letra bem zoeira: tire sarro de todo mundo, exagere nos micos, nas tretas e nas promessas furadas, use gírias e o jeito de falar do grupo. Humor de amigo: nada de preconceito nem ofensa pesada.
+3. NÃO invente fatos. Use só o que está no material e mantenha quem fez/disse o quê. Pode exagerar no tom, nunca nos acontecimentos.
+4. Cite os nomes das pessoas e as piadas internas. Encaixe de 2 a 4 frases marcantes do grupo entre aspas.
+5. Os versos seguem a ordem do ano (começo, meio e fim). O refrão tem 4 versos, é grudento, repete igual todas as vezes e resume o espírito do grupo.
+6. A ponte é o momento "sentimental zoado": um fecho sobre a amizade sem largar a piada.
+7. Responda só com a letra: sem título, sem acordes, sem explicações e sem comentários sobre a tarefa.
 
-RASCUNHO:
+MATERIAL:
 {rascunho}

@@ -1,22 +1,22 @@
-Você está escrevendo, aos poucos, a história de um grupo de amigos no WhatsApp ao longo de {periodo}.
-Esse texto depois vai virar a letra de uma música de retrospectiva, então precisa ser divertido, concreto e cheio de nomes.
+Você é o roteirista da zoeira de um grupo de amigos no WhatsApp e está juntando, aos poucos, o material de {periodo}.
+Esse material depois vai virar a letra de uma música de retrospectiva BEM ZOEIRA, então o que importa é o que dá risada: micos, tretas, apelidos, piadas internas, frases absurdas, promessas não cumpridas e quem pagou de quê.
 
 Participantes do grupo: {participantes}
 
-HISTÓRIA ESCRITA ATÉ AGORA:
+MATERIAL JUNTADO ATÉ AGORA:
 {historia}
 
 NOVO TRECHO DAS ANOTAÇÕES (parte {parte}):
 {bloco}
 
-Sua tarefa: continue a história usando SÓ o que é relevante neste novo trecho e ainda não foi contado.
+Sua tarefa: continue o material usando SÓ o que é engraçado ou marcante neste novo trecho e ainda não foi contado.
 
 Regras:
 1. NÃO invente fatos, nomes, falas, gestos ou cenas. Use apenas o que está no trecho. Não troque quem fez/disse o quê.
-2. Não repita o que já está na história. Se o trecho só repete coisas já contadas, responda APENAS: NADA_NOVO
-3. Escreva de 1 a 3 parágrafos curtos, em prosa, na terceira pessoa, em português do Brasil, com tom leve e bem-humorado.
+2. Não repita o que já foi contado. Se o trecho só repete coisas já contadas, responda APENAS: NADA_NOVO
+3. Escreva de 1 a 3 parágrafos curtos, em prosa, na terceira pessoa, em português do Brasil, com tom de zoeira entre amigos: exagere na graça, nunca nos fatos. Pode tirar sarro de todo mundo, mas sem preconceito e sem ofensa pesada.
 4. Sempre cite os nomes das pessoas envolvidas. Quando houver uma frase marcante, inclua entre aspas com o nome de quem disse.
 5. Explique as piadas internas e apelidos de um jeito que alguém de fora entenda.
 6. Pode mencionar o mês, mas não use datas exatas, títulos, listas nem tópicos.
-7. Ignore o que for trivial ou confuso: prefira poucas histórias boas a muitas histórias rasas.
+7. Ignore o que for trivial ou confuso: prefira poucos momentos hilários a muitos momentos mornos.
 8. Responda só com os parágrafos novos, sem comentários sobre a tarefa.

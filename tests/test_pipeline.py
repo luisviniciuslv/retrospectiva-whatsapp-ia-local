@@ -3,7 +3,9 @@ import unittest
 from datetime import date
 
 from src import chunker, cleaner
-from src.historia import blocos_do_dossie, limpar_dossie, limpar_trecho, periodo_do_dossie
+from pathlib import Path
+
+from src.historia import blocos_do_dossie, limpar_dossie, limpar_letra, limpar_trecho, periodo_do_dossie
 from src.llm_client import _perfil_por_vram, host_eh_local, selecionar
 from src.map_phase import eh_nada_relevante
 
@@ -141,6 +143,43 @@ class TestHistoria(unittest.TestCase):
         vistos: set[str] = set()
         limpar_trecho("Ana ganhou o bolão.", vistos)
         self.assertEqual(limpar_trecho("Ana ganhou o bolão.\n\nZé riu.", vistos), "Zé riu.")
+
+    def test_limpar_letra(self):
+        resp = ("Aqui está a letra:\n\n```\n# Retrospectiva dos Pertubados\n\n**Verso 1:**\n"
+                "O Zé caiu da bike em junho\nE a Ana riu até perder o punho\n\n\n"
+                "## Refrão\nÉ o grupo mais zoado\nNinguém sai daqui calado\n\nFinal do ano\n[Ponte]\n```")
+        self.assertEqual(limpar_letra(resp),
+                         "[Verso 1]\nO Zé caiu da bike em junho\nE a Ana riu até perder o punho\n\n"
+                         "[Refrão]\nÉ o grupo mais zoado\nNinguém sai daqui calado\n\nFinal do ano")
+        self.assertEqual(limpar_letra("[Verso 1]\n[Refrão]"), "")
+
+
+class TestCLI(unittest.TestCase):
+    def test_comando_unico(self):
+        import main
+        a = main.construir_parser().parse_args(["musica", "chat.zip", "-m", "gemma3:12b", "--ano", "2026"])
+        self.assertIs(a.fn, main.cmd_rodar)
+        self.assertEqual((a.conversa, a.modelo, a.ano), ("chat.zip", "gemma3:12b", 2026))
+        a = main.construir_parser().parse_args(["--modelo", "qwen2.5:7b", "rodar"])
+        self.assertEqual((a.conversa, a.modelo), (None, "qwen2.5:7b"))
+
+    def test_extrair_zip(self):
+        import tempfile
+        import zipfile
+        import main
+        with tempfile.TemporaryDirectory() as d:
+            z = Path(d) / "export.zip"
+            with zipfile.ZipFile(z, "w") as f:
+                f.writestr("leiame.txt", "x")
+                f.writestr("_chat.txt", "\n".join(ANDROID))
+                f.writestr("foto.jpg", "bin")
+            orig = main.settings.PROCESSED_DIR
+            main.settings.PROCESSED_DIR = Path(d) / "proc"
+            try:
+                saida = main.extrair_zip(z)
+            finally:
+                main.settings.PROCESSED_DIR = orig
+            self.assertEqual(saida.read_text(encoding="utf-8").splitlines(), ANDROID)
 
 
 if __name__ == "__main__":

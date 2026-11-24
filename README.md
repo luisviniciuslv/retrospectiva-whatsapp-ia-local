@@ -1,8 +1,12 @@
 # 🎤 Retrospectiva do WhatsApp com IA local
 
-Transforme o histórico de um grupo do WhatsApp em um **Dossiê de Retrospectiva**: a linha do
-tempo do ano, o que marcou cada pessoa, as piadas internas e as frases mais icônicas. O dossiê é
-a matéria-prima pronta para compor aquela música (ou vídeo, ou discurso) de fim de ano.
+Transforme o histórico de um grupo do WhatsApp em um **Dossiê de Retrospectiva** (a linha do
+tempo do ano, o que marcou cada pessoa, as piadas internas e as frases mais icônicas) e na
+**letra rimada e bem zoeira** da música de fim de ano, pronta para colar no Suno/Udio.
+
+```powershell
+.\retro.cmd musica "WhatsApp Chat - Grupo.zip" --modelo qwen2.5:14b --ano 2026
+```
 
 - 🔒 **100% local:** a conversa nunca sai da sua máquina. A IA roda via [Ollama](https://ollama.com).
 - ⏸️ **Retomável:** o progresso é salvo a cada bloco. Pode interromper e continuar depois.
@@ -12,7 +16,7 @@ a matéria-prima pronta para compor aquela música (ou vídeo, ou discurso) de f
 ```
 chat.txt ─▶ 1. limpar ─▶ 2. chunks ─▶ 3. MAP (IA lê bloco a bloco) ─▶ 4. REDUCE (IA consolida) ─▶ dossie_retrospectiva.md
                                                                                               │
-                                              5. HISTÓRIA (IA lê o dossiê em blocos e narra) ◀┘ ─▶ historia_para_musica.txt
+                                                5. LETRA (IA lê o dossiê em blocos e compõe) ◀┘ ─▶ letra_musica.txt
 ```
 
 ---
@@ -50,12 +54,26 @@ Os exemplos abaixo usam `.\retro.cmd` (Windows). No Linux/macOS, troque por `./r
 ## 3. Exportar a conversa
 
 No WhatsApp, abra o grupo e vá em **⋮ / nome do grupo → Mais → Exportar conversa → Sem mídia**.
-Salve o `.txt` (no iPhone ele vem dentro de um `.zip`; extraia) e coloque em **`data/raw/`**.
+Salve o `.txt` ou o `.zip` (o iPhone exporta em `.zip`; não precisa extrair) e passe o caminho
+para o comando, ou coloque em **`data/raw/`**.
 
 Os formatos Android (`24/11/2026 17:05 - Nome: msg`) e iOS (`[11/24/26, 5:05:33 PM] Nome: msg`),
 em português ou inglês, são detectados automaticamente.
 
-## 4. Passo a passo
+## 4. Um comando só
+
+```powershell
+.\retro.cmd musica CAMINHO\DA\CONVERSA.zip --modelo qwen2.5:14b --ano 2026
+```
+
+Ele recebe a conversa (`.txt` ou `.zip`), limpa, extrai com a IA, gera o dossiê e compõe a letra,
+**tudo com o modelo que você passar** em `--modelo` (ou `-m`). Sem `--modelo`, escolhe sozinho pela
+VRAM (veja a seção 5). Não faz perguntas no meio do caminho: se o modelo não estiver instalado, ele baixa.
+É retomável: se parar (Ctrl+C, queda de luz), rode **o mesmo comando** e ele continua de onde parou.
+`rodar` é o mesmo comando com outro nome. Opções: `--ano`/`--inicio`/`--fim`, `--palavras N`
+(tamanho da letra), `--refazer` (refaz a extração e a letra do zero) e `-v`.
+
+### Etapa por etapa (para calibrar)
 
 ```powershell
 .\retro.cmd setup              # confere o Ollama e baixa o modelo certo para a sua máquina
@@ -63,16 +81,17 @@ em português ou inglês, são detectados automaticamente.
 .\retro.cmd piloto -n 8        # testa a IA em 8 trechos espalhados (rápido)
 .\retro.cmd map                # processa tudo (pode levar horas; Ctrl+C e rode de novo para continuar)
 .\retro.cmd reduce             # gera o dossiê
-.\retro.cmd historia           # transforma o dossiê num texto corrido para a IA de música
+.\retro.cmd historia           # transforma o dossiê na letra rimada e zoeira da música
 ```
 
-Ou tudo de uma vez: `.\retro.cmd rodar --ano 2026 -y`. Rodando `.\retro.cmd` sem nada, abre um **menu interativo**.
+Rodando `.\retro.cmd` sem nada, abre um **menu interativo**.
 
 O resultado fica em `data/output/<modelo>/`:
 
-- `dossie_retrospectiva.md`: o material organizado (linha do tempo, pessoas, piadas, pérolas).
-- `historia_para_musica.txt`: **o texto para colar na IA geradora de música** (Suno, Udio etc.).
-- `historia_rascunho.md`: a história completa, escrita bloco a bloco, antes de ser enxugada.
+- `dossie_retrospectiva.md`: **o dossiê, o resumo de tudo** (linha do tempo, pessoas, piadas, pérolas).
+- `letra_musica.txt`: **a letra para colar na IA geradora de música** (Suno, Udio etc.), com
+  `[Verso]`, `[Refrão]` e `[Ponte]`.
+- `historia_rascunho.md`: o material da zoeira em prosa, escrito bloco a bloco, que virou a letra.
 
 ### Comandos
 
@@ -85,11 +104,11 @@ O resultado fica em `data/output/<modelo>/`:
 | `piloto -n N` | Roda a IA em N blocos e salva `piloto.md` para você avaliar. Também estima o tempo total |
 | `map` | Etapa 3: extração completa e retomável (`--limite N`, `--refazer`, `-v`) |
 | `reduce` | Etapa 4: consolida por mês e gera o dossiê (`--parcial` para gerar antes de o MAP terminar) |
-| `historia` | Etapa 5: lê o dossiê em blocos e escreve a história do grupo em prosa (`--palavras N`, `--dossie ARQ`, `--bloco N`, `--refazer`, `-v`) |
-| `rodar` | Todas as etapas em sequência |
+| `historia` | Etapa 5: lê o dossiê em blocos e compõe a letra rimada e zoeira (`--palavras N`, `--dossie ARQ`, `--bloco N`, `--refazer`, `-v`) |
+| `musica` / `rodar` | **Comando único**: recebe a conversa (`.txt`/`.zip`) e faz todas as etapas com o mesmo modelo |
 | `resetar` | Apaga os checkpoints do modelo atual (`--tudo` inclui dossiê e piloto) |
 
-Opções que valem para todos: `--perfil`, `--modelo`, `--host`, `--vram` e `-y` (responde "sim" a tudo).
+Opções que valem para todos: `--perfil`, `--modelo`/`-m`, `--host`, `--vram` e `-y` (responde "sim" a tudo).
 
 ## 5. Qual modelo é usado?
 
@@ -145,16 +164,20 @@ copy config\aliases.example.json config\aliases.json
 
 O dossiê inclui anexos com quem mais falou e as anotações brutas de cada mês, para a curadoria humana final.
 
-### A história para a música
+### A letra da música
 
 O `historia` divide o dossiê em blocos (sem o anexo de contagem e sem itens repetidos) e lê um por
-vez. A cada bloco, a IA recebe a história escrita até ali e acrescenta só o que é novo. No fim, uma
-última chamada reescreve tudo como um texto único de até `--palavras` palavras (400 por padrão).
-Os prompts são [`historia_bloco_prompt.txt`](prompts/historia_bloco_prompt.txt) e
-[`historia_final_prompt.txt`](prompts/historia_final_prompt.txt).
+vez. A cada bloco, a IA recebe o material da zoeira escrito até ali e acrescenta só o que é novo e
+engraçado, em prosa, para não perder os fatos. No fim, uma última chamada transforma tudo na
+**letra**: versos rimados (AABB ou ABAB), refrão grudento que se repete, ponte "sentimental zoada",
+com os nomes, as piadas internas e as frases do grupo, em até `--palavras` palavras (400 por padrão).
+Os prompts são [`historia_bloco_prompt.txt`](prompts/historia_bloco_prompt.txt) (material),
+[`historia_final_prompt.txt`](prompts/historia_final_prompt.txt) (a letra) e
+[`historia_resumo_prompt.txt`](prompts/historia_resumo_prompt.txt) (enxuga rascunhos muito longos).
 
 O progresso fica salvo em `historia_passos.jsonl`: se você interromper, ele continua de onde parou.
-Para escrever de novo do zero (depois de mexer nos prompts, por exemplo), use `--refazer`.
+Se você editar um prompt, as etapas que dependem dele são refeitas sozinhas na próxima rodada.
+Para escrever tudo de novo do zero, use `--refazer`.
 Para narrar o dossiê de outro modelo, use `--dossie data\output\qwen2.5-14b\dossie_retrospectiva.md`.
 
 > 💡 Modelos pequenos (3b) escrevem de forma repetitiva e às vezes inventam detalhes. Para o texto

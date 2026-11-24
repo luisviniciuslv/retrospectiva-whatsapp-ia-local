@@ -9,8 +9,8 @@ Uso rápido:
     python main.py piloto -n 8      # teste piloto em 8 chunks espalhados
     python main.py map              # etapa 3 completa (retomável)
     python main.py reduce           # etapa 4 -> dossiê
-    python main.py historia         # etapa 5 -> texto narrativo para IA de música
-    python main.py rodar            # tudo de uma vez
+    python main.py historia         # etapa 5 -> letra rimada e zoeira da música
+    python main.py musica chat.txt -m qwen2.5:14b   # TUDO de uma vez (alias: rodar)
 
 Seleção do modelo:  --perfil auto|teste|producao  --modelo NOME  --host URL  --vram GB
 """
@@ -75,15 +75,36 @@ def parse_data(s: str | None) -> date | None:
     raise argparse.ArgumentTypeError(f"Data inválida: {s} (use dd/mm/aaaa)")
 
 
+def extrair_zip(caminho: Path) -> Path:
+    """O export do iPhone (e o "anexar" do Android) vem num .zip: extrai o .txt da conversa."""
+    import zipfile
+    with zipfile.ZipFile(caminho) as z:
+        txts = [i for i in z.infolist() if i.filename.lower().endswith(".txt") and not i.is_dir()]
+        if not txts:
+            raise SystemExit(f"Nenhum .txt dentro de {caminho.name}.")
+        # prefere o "_chat.txt" / "Conversa do WhatsApp com ...txt"; senão, o maior
+        txts.sort(key=lambda i: ("chat" in i.filename.lower() or "conversa" in i.filename.lower(), i.file_size),
+                  reverse=True)
+        destino = settings.PROCESSED_DIR / "conversa_extraida.txt"
+        destino.parent.mkdir(parents=True, exist_ok=True)
+        destino.write_bytes(z.read(txts[0]))
+    print(f"  Extraído {txts[0].filename} de {caminho.name}")
+    return destino
+
+
 def achar_arquivo_raw(arquivo: str | None) -> Path:
     if arquivo:
         p = Path(arquivo)
         if not p.exists():
             raise SystemExit(f"Arquivo não encontrado: {p}")
-        return p
+        return extrair_zip(p) if p.suffix.lower() == ".zip" else p
     txts = sorted(settings.RAW_DIR.glob("*.txt"))
     if not txts:
-        raise SystemExit(f"Coloque o .txt exportado do WhatsApp em {settings.RAW_DIR} (ou use --arquivo).")
+        zips = sorted(settings.RAW_DIR.glob("*.zip"))
+        if len(zips) == 1:
+            return extrair_zip(zips[0])
+        raise SystemExit(f"Coloque o .txt (ou .zip) exportado do WhatsApp em {settings.RAW_DIR} "
+                         f"(ou passe o caminho do arquivo).")
     if len(txts) > 1:
         nomes = "\n  ".join(t.name for t in txts)
         raise SystemExit(f"Há mais de um .txt em {settings.RAW_DIR}; escolha com --arquivo:\n  {nomes}")
@@ -375,7 +396,7 @@ def cmd_reduce(args) -> None:
 
 
 def cmd_historia(args) -> None:
-    titulo("Etapa 5 — História para a música")
+    titulo("Etapa 5 — Letra da música")
     sel = obter_selecao(args)
     mostrar_selecao(sel)
     saida = pasta_saida(sel)
@@ -407,8 +428,10 @@ def cmd_historia(args) -> None:
             raise SystemExit("A IA não achou nada para contar no dossiê.")
         (saida / settings.NOME_ARQUIVO_RASCUNHO).write_text(
             f"# Rascunho da história — {periodo}\n\n{rascunho}\n", encoding="utf-8")
-        print("Escrevendo a versão final (pode demorar alguns minutos)...")
+        print("Compondo a letra rimada (pode demorar alguns minutos)...")
         texto = escritor.final(rascunho, periodo, args.palavras)
+    except RuntimeError as e:
+        raise SystemExit(str(e))
     except KeyboardInterrupt:
         print()
         aviso("Interrompido. O progresso está salvo — rode `historia` de novo para continuar.")
@@ -418,15 +441,36 @@ def cmd_historia(args) -> None:
     print(f"\n{texto}\n")
     print(f"  {len(texto.split())} palavras · {len(texto)} caracteres")
     ok(f"Rascunho completo em {(saida / settings.NOME_ARQUIVO_RASCUNHO).relative_to(settings.ROOT_DIR)}")
-    ok(f"Texto para a IA de música em {destino.relative_to(settings.ROOT_DIR)}")
+    ok(f"Letra para a IA de música em {destino.relative_to(settings.ROOT_DIR)}")
 
 
 def cmd_rodar(args) -> None:
-    cmd_limpar(args)
-    cmd_chunks(args)
-    cmd_map(args)
-    cmd_reduce(args)
-    cmd_historia(args)
+    """Comando único: conversa → limpeza → MAP → dossiê → letra da música."""
+    if getattr(args, "conversa", None):
+        args.arquivo = args.conversa
+    sel = obter_selecao(args)
+    titulo("Retrospectiva completa")
+    mostrar_selecao(sel)
+    print("  Todas as etapas usam este modelo. É retomável: se parar, rode o mesmo comando de novo.")
+    sim_antes = args.sim
+    args.sim = True  # sem perguntas no meio do caminho (baixa o modelo se faltar)
+    try:
+        cmd_limpar(args)
+        cmd_chunks(args)
+        cmd_map(args)
+        cmd_reduce(args)
+        cmd_historia(args)
+    finally:
+        args.sim = sim_antes  # no menu interativo, não vale para os próximos comandos
+
+    saida = pasta_saida(sel)
+    titulo("Pronto!")
+    for nome, desc in [(settings.NOME_ARQUIVO_DOSSIE, "dossiê (resumo de tudo: linha do tempo, pessoas, piadas)"),
+                       (settings.NOME_ARQUIVO_RASCUNHO, "rascunho da zoeira, bloco a bloco"),
+                       (settings.NOME_ARQUIVO_HISTORIA, "letra da música, pronta para o Suno/Udio")]:
+        arq = saida / nome
+        if arq.exists():
+            print(f"  {desc:<58} {arq.relative_to(settings.ROOT_DIR)}")
 
 
 def cmd_resetar(args) -> None:
@@ -461,7 +505,7 @@ def menu(args) -> None:
         ("3b. MAP completo (retomável)", cmd_map),
         ("4. REDUCE → dossiê", cmd_reduce),
         ("5. História para a música", cmd_historia),
-        ("Rodar tudo", cmd_rodar),
+        ("Rodar tudo (conversa → dossiê → letra)", cmd_rodar),
         ("Trocar perfil (auto/teste/producao)", None),
     ]
     defaults = dict(arquivo=None, inicio=None, fim=None, ano=None, n=8, semente=42, quieto=False,
@@ -510,7 +554,8 @@ def construir_parser() -> argparse.ArgumentParser:
         g = c.add_argument_group("seleção de modelo")
         g.add_argument("--perfil", default=d(settings.PERFIL_PADRAO), choices=["auto", *settings.PERFIS],
                        help="auto (padrão) detecta pela VRAM; ou force teste/producao")
-        g.add_argument("--modelo", default=d(None), help="força um modelo do Ollama (ex.: gemma3:12b)")
+        g.add_argument("-m", "--modelo", default=d(None),
+                       help="modelo do Ollama usado em todas as etapas (ex.: gemma3:12b)")
         g.add_argument("--host", default=d(settings.OLLAMA_HOST),
                        help="URL do Ollama (padrão: $OLLAMA_HOST ou localhost)")
         g.add_argument("--vram", type=float, default=d(None), help="VRAM em GB (útil para servidor remoto)")
@@ -561,12 +606,17 @@ def construir_parser() -> argparse.ArgumentParser:
     sh.add_argument("-v", "--verbose", action="store_true", help="imprime o trecho escrito a cada bloco")
     sh.set_defaults(fn=cmd_historia)
 
-    sa = sub.add_parser("rodar", parents=[comum, filtro], help="pipeline completo")
+    sa = sub.add_parser("rodar", aliases=["musica"], parents=[comum, filtro],
+                        help="COMANDO ÚNICO: conversa → dossiê → letra da música",
+                        description="Recebe a conversa exportada (.txt ou .zip), limpa, extrai, gera o dossiê "
+                                    "e compõe a letra. Ex.: retro musica chat.txt --modelo qwen2.5:14b --ano 2026")
+    sa.add_argument("conversa", nargs="?", help="o .txt ou .zip exportado (padrão: o que estiver em data/raw)")
     sa.add_argument("--limite", type=int, help=argparse.SUPPRESS)
-    sa.add_argument("--refazer", action="store_true", help="refaz o MAP do zero")
-    sa.add_argument("-v", "--verbose", action="store_true")
-    sa.add_argument("--parcial", action="store_true")
-    sa.add_argument("--palavras", type=int, default=settings.HISTORIA_PALAVRAS, help=argparse.SUPPRESS)
+    sa.add_argument("--refazer", action="store_true", help="refaz o MAP e a letra do zero")
+    sa.add_argument("-v", "--verbose", action="store_true", help="imprime as respostas da IA")
+    sa.add_argument("--parcial", action="store_true", help=argparse.SUPPRESS)
+    sa.add_argument("--palavras", type=int, default=settings.HISTORIA_PALAVRAS,
+                    help=f"tamanho máximo da letra (padrão {settings.HISTORIA_PALAVRAS})")
     sa.set_defaults(dossie=None, bloco=None)
     sa.set_defaults(fn=cmd_rodar)
 

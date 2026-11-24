@@ -1,0 +1,11 @@
+Abaixo está um trecho do material da zoeira de um grupo de amigos no WhatsApp ao longo de {periodo}.
+
+Enxugue o trecho em no máximo {max_palavras} palavras, em prosa, em português do Brasil, mantendo só os momentos mais engraçados e marcantes, os nomes das pessoas, as piadas internas, os apelidos e as frases marcantes (entre aspas, com quem disse).
+
+Regras:
+1. NÃO invente nada e não troque quem fez/disse o quê.
+2. Mantenha a ordem dos acontecimentos.
+3. Responda só com o texto: sem títulos, listas, tópicos ou comentários sobre a tarefa.
+
+TRECHO:
+{rascunho}

@@ -1,8 +1,9 @@
-"""Etapa 5 — História: lê o dossiê em blocos e escreve um texto narrativo para IA de música.
+"""Etapa 5 — História: lê o dossiê em blocos e compõe a letra (rimada e zoeira) da música.
 
-Funciona como um "refine": a cada bloco do dossiê, a IA recebe a história escrita até
-agora e acrescenta só o que é novo e relevante. No fim, uma última chamada reescreve o
-rascunho como um texto único e enxuto, pronto para colar num gerador de música.
+Funciona como um "refine": a cada bloco do dossiê, a IA recebe o material escrito até
+agora e acrescenta só o que é novo e engraçado (em prosa, para não perder os fatos). No
+fim, uma última chamada transforma esse rascunho na letra da música, com versos rimados
+e marcações [Verso]/[Refrão]/[Ponte], pronta para colar num gerador de música.
 """
 from __future__ import annotations
 
@@ -159,6 +160,44 @@ def limpar_trecho(resposta: str, vistos: set[str] | None = None) -> str:
     return "\n\n".join(paragrafos)
 
 
+SECOES_LETRA = re.compile(
+    r"^(verso|estrofe|refr[aã]o|pr[eé][- ]?refr[aã]o|ponte|intro|introdu[cç][aã]o|outro|final|"
+    r"encerramento|coro|chorus|verse|bridge|hook)\b[\w\s]{0,12}$", re.IGNORECASE)
+
+
+def limpar_letra(resposta: str) -> str:
+    """Deixa só a letra: preserva as quebras de verso, padroniza as marcações de seção como
+    [Verso 1]/[Refrão] e tira preâmbulos, títulos, negrito e cercas de código."""
+    linhas: list[str] = []
+    for bruta in resposta.strip().splitlines():
+        s = bruta.strip()
+        if s.startswith("```"):
+            continue
+        m = RE_TITULO.match(s)
+        nome = (m.group(2) if m else s).replace("*", "").replace("_", " ").strip().strip("[]():").strip()
+        marcada = m or s.startswith(("[", "(", "*")) or s.endswith(":")
+        if SECOES_LETRA.match(nome) and (marcada or re.fullmatch(r"[^\W\d]+(\s+\d+)?", nome)):
+            if linhas and linhas[-1]:
+                linhas.append("")
+            linhas.append(f"[{nome[0].upper()}{nome[1:]}]")
+            continue
+        if m:
+            continue  # título da música ou qualquer outro cabeçalho
+        s = s.replace("**", "").strip()
+        if not any(l and not l.startswith("[") for l in linhas):
+            # antes do primeiro verso: descarta "Aqui está a letra:", "Título: ..." etc.
+            if not s or (RE_PREAMBULO.match(s) and s.endswith(":")) or s.lower().startswith(("título", "titulo")):
+                continue
+        if not s and (not linhas or not linhas[-1]):
+            continue  # sem linhas em branco duplicadas
+        linhas.append(s)
+    while linhas and (not linhas[-1] or linhas[-1].startswith("[")):
+        linhas.pop()  # marcação solta ou linha vazia no fim
+    if not any(l and not l.startswith("[") for l in linhas):
+        return ""
+    return "\n".join(linhas)
+
+
 # --------------------------------------------------------------------------
 # Escritor
 # --------------------------------------------------------------------------
@@ -171,6 +210,7 @@ class Escritor:
         self.cache = self._carregar_cache()
         self.tpl_bloco = (settings.PROMPTS_DIR / "historia_bloco_prompt.txt").read_text(encoding="utf-8")
         self.tpl_final = (settings.PROMPTS_DIR / "historia_final_prompt.txt").read_text(encoding="utf-8")
+        self.tpl_resumo = (settings.PROMPTS_DIR / "historia_resumo_prompt.txt").read_text(encoding="utf-8")
         # quanto da história anterior cabe no prompt junto com o bloco novo
         self.max_contexto = self.cfg["reduce_max_chars"] // 2
 
@@ -216,7 +256,8 @@ class Escritor:
         vistos: set[str] = set()
         for i, bloco in enumerate(tqdm(blocos, desc="História (lendo o dossiê)", unit="bloco"), 1):
             ctx = self._contexto(historia)
-            chave = f"{self.sel.modelo}|bloco|{_hash(bloco)}|{_hash(ctx)}"
+            # o hash do prompt entra na chave: editou o prompt, a IA escreve de novo
+            chave = f"{self.sel.modelo}|bloco|{_hash(self.tpl_bloco)}|{_hash(bloco)}|{_hash(ctx)}"
             prompt = (self.tpl_bloco.replace("{periodo}", periodo)
                       .replace("{participantes}", participantes)
                       .replace("{parte}", f"{i}/{len(blocos)}")
@@ -230,11 +271,11 @@ class Escritor:
         return historia
 
     def final(self, rascunho: str, periodo: str, max_palavras: int) -> str:
-        """Reescreve o rascunho como um texto único e fluido."""
+        """Transforma o rascunho na letra da música (rimada, com refrão)."""
         texto = rascunho
         limite = self.cfg["reduce_max_chars"]
         if len(texto) > limite:
-            # rascunho grande demais para uma chamada: enxuga por partes antes
+            # rascunho grande demais para uma chamada: enxuga por partes (em prosa) antes
             partes, atual = [], ""
             for p in texto.split("\n\n"):
                 if atual and len(atual) + len(p) > limite:
@@ -242,15 +283,28 @@ class Escritor:
                     atual = ""
                 atual = f"{atual}\n\n{p}".strip()
             partes.append(atual)
-            por_parte = max(120, max_palavras * 2 // len(partes))
-            texto = "\n\n".join(self._reescrever(p, periodo, por_parte, f"parte {i + 1}/{len(partes)}")
+            por_parte = max(150, max_palavras * 3 // len(partes))
+            texto = "\n\n".join(self._enxugar(p, periodo, por_parte, f"parte {i + 1}/{len(partes)}")
                                 for i, p in enumerate(partes))
-        return self._reescrever(texto, periodo, max_palavras, "final")
+        return self._compor_letra(texto, periodo, max_palavras)
 
-    def _reescrever(self, texto: str, periodo: str, max_palavras: int, etapa: str) -> str:
-        prompt = (self.tpl_final.replace("{periodo}", periodo)
-                  .replace("{max_palavras}", str(max_palavras))
-                  .replace("{rascunho}", texto))
-        chave = f"{self.sel.modelo}|final|{max_palavras}|{_hash(texto)}"
-        resp = self._chamar(chave, etapa, prompt, min(0.6, self.cfg["temperature"] + 0.2))
+    def _prompt(self, tpl: str, texto: str, periodo: str, max_palavras: int) -> str:
+        return (tpl.replace("{periodo}", periodo)
+                .replace("{max_palavras}", str(max_palavras))
+                .replace("{rascunho}", texto))
+
+    def _enxugar(self, texto: str, periodo: str, max_palavras: int, etapa: str) -> str:
+        chave = f"{self.sel.modelo}|resumo|{_hash(self.tpl_resumo)}|{max_palavras}|{_hash(texto)}"
+        resp = self._chamar(chave, etapa, self._prompt(self.tpl_resumo, texto, periodo, max_palavras),
+                            min(0.6, self.cfg["temperature"] + 0.15))
         return limpar_trecho(resp) or texto
+
+    def _compor_letra(self, texto: str, periodo: str, max_palavras: int) -> str:
+        chave = f"{self.sel.modelo}|letra|{_hash(self.tpl_final)}|{max_palavras}|{_hash(texto)}"
+        # mais criativo: rima pede liberdade (os fatos já vêm amarrados pelo rascunho)
+        resp = self._chamar(chave, "letra", self._prompt(self.tpl_final, texto, periodo, max_palavras),
+                            min(0.8, self.cfg["temperature"] + 0.45))
+        letra = limpar_letra(resp)
+        if not letra:
+            raise RuntimeError("A IA não devolveu uma letra. Rode `historia` de novo ou troque de modelo.")
+        return letra
